@@ -60,32 +60,43 @@ const getRoundTrips = function (details, date) {
 	return {
 		type: details[0],
 		date: date,
-		trains: {
-			departureTime: details[1],
+		trains: [{
+			departureTime: details[1].replace('h', ':'),
 			departureStation: details[2],
-			arrivalTime: details[6],
+			arrivalTime: details[6].replace('h', ':'),
 			arrivalStation: details[7],
 			type: details[3],
 			number: details[4],
 			// class: details[5],
-		}
+		}]
 	};
+}
+
+const fmtPassengers = function (elem) {
+	return false;
 }
 
 fs.readFile('./test.html', 'utf8', function (err, data) {
 	if (err) throw err;
 
 	const parsed = parse(data);
-	const name = parsed.querySelectorAll('span.\\\"pnr-info\\\"')[1].text;
-	const code = parsed.querySelectorAll('span.\\\"pnr-info\\\"')[4].text;
+
+	// get trips values
+	const name = parsed.querySelectorAll('span.\\\"pnr-info\\\"')[1].text.trim();
+	const code = parsed.querySelectorAll('span.\\\"pnr-info\\\"')[4].text.trim();
 	const price = parsed.querySelector('td.\\\"very-important\\\"').text;
 	const fmtPrice = euroToFloat(price);
 	const travelWay = parsed.querySelectorAll('table.\\\"product-details\\\"');
 
-	const travelDate = parsed.querySelectorAll('td.\\\"pnr-summary\\\"');
-	let dates = travelDate.map(e => e.childNodes[0].text);
-	let formatedDates = fmtDate(dates);
+	// filter passengers
+	const placement = parsed.querySelectorAll('table.\\\"passengers\\\"');
 
+	// format date values
+	const travelDate = parsed.querySelectorAll('td.\\\"pnr-summary\\\"');
+	const dates = travelDate.map(e => e.childNodes[0].text);
+	const formatedDates = fmtDate(dates);
+
+	// parse roundTrips
 	const roundTrips = travelWay.map((elem, i) => {
 		let cleaned = stringClean(elem.text);
 		let split = cleaned.split('$').filter(String);
@@ -93,11 +104,38 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 		return getRoundTrips(split, formatedDates[i]);
 	})
 
-	console.log(roundTrips);
+	// parse product-header
+	const prodHeader1 = parsed.querySelectorAll('tr.\\\"product-header\\\"');
+	const prodHeader2 = parsed.querySelectorAll('table.\\\"product-header\\\"');
+	const amounts1 = prodHeader1.map((val) => {
+		console.log(val.text.replace(/\s*[^\x20-\x7E]*\s*\\r\\n\s*/gm, ' '));
+	})
 
-	console.log(
-		"Name = " + name + "\n" +
-		"Code = " + code + "\n" +
-		"Price = " + fmtPrice + "\n"
-	);
+	const amounts2 = prodHeader2.map((val) => {
+		console.log(val.text.replace(/\s*[^\x20-\x7E]*\s*\\r\\n\s*/gm, ' '));
+	})
+
+	finalRes = {
+		status: 'ok',
+		result: {
+			trips: [{
+				code,
+				name,
+				details: {
+					price: fmtPrice,
+					roundTrips
+				}
+			}],
+			custom: {
+				prices: [
+
+				]
+			}
+		}
+	};
+
+	let fileContent = JSON.stringify(finalRes, null, 2);
+	fs.writeFile('test2.json', fileContent, (err) => {
+		if (err) throw err;
+	})
 });
