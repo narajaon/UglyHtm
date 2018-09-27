@@ -30,7 +30,7 @@ const isRefundable = function (input) {
 fs.readFile(src, 'utf8', function (err, data) {
 	if (err) {
 
-		return fs.writeFile('test2.json', readErrorHandler(err), (err) => {
+		return fs.writeFile(dest, readErrorHandler(err), (err) => {
 			if (err) throw err;
 		});
 	}
