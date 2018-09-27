@@ -1,62 +1,17 @@
 const fs = require('fs');
 const { parse } = require('node-html-parser');
+const {
+	euroToFloat,
+	stringClean,
+	fmtDate,
+	passengerFormater,
+	CLEANER_REGEX
+} = require('./formaters')
 
-const euroToFloat = function (price) {
-	let split = price.split(' ');
-	split.pop();
-	split.pop();
-	return parseFloat(split.join('').replace(',', '.'));
-}
+const CL = console.log;
 
-const stringClean = function (data) {
-	return data.replace(/\s*[^\x20-\x7E]*\s*\\r\\n\s*/gm, '$');
-}
+const getRoundTrips = function (details, date, passengers) {
 
-const reverseDayMonth = function (date) {
-	fmt = date.split('/')
-
-	return fmt[1] + '/' + fmt[0] + '/' + fmt[2];
-}
-
-const parseDateString = function (date) {
-
-	function pad(number) {
-		if (number < 10) {
-			return '0' + number;
-		}
-
-		return number;
-	}
-
-	return date.getUTCFullYear() +
-		'-' + pad(date.getMonth() + 1) +
-		'-' + pad(date.getDate()) +
-		' ' + pad(date.getHours()) +
-		':' + pad(date.getMinutes()) +
-		':' + pad(date.getSeconds()) +
-		'.' + (date.getMilliseconds() / 1000).toFixed(3).slice(2, 5) + 'Z';
-}
-
-const fmtDate = function (dateArray) {
-	let dates = [];
-
-	for (let elem of dateArray) {
-		let formated = elem.trim()
-			.replace(/[^\x20-\x7E]/gm, ' ')
-			.split(' ')
-			.filter(String);
-
-		formated1 = parseDateString(new Date(reverseDayMonth(formated[5])));
-		formated2 = parseDateString(new Date(reverseDayMonth(formated[7])));
-
-		dates.push(formated1);
-		dates.push(formated2);
-	}
-
-	return dates;
-}
-
-const getRoundTrips = function (details, date) {
 	return {
 		type: details[0],
 		date: date,
@@ -67,13 +22,14 @@ const getRoundTrips = function (details, date) {
 			arrivalStation: details[7],
 			type: details[3],
 			number: details[4],
-			// class: details[5],
+			passengers,
 		}]
 	};
 }
 
-const fmtPassengers = function (elem) {
-	return false;
+const isRefundable = function (input) {
+	let res = input.search(/Billet échangeable et remboursable sans frais à l'émission du billet/g);
+	return (res > 0) ? 'échangeable' : 'non échangeable';
 }
 
 fs.readFile('./test.html', 'utf8', function (err, data) {
@@ -90,6 +46,12 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 
 	// filter passengers
 	const placement = parsed.querySelectorAll('table.\\\"passengers\\\"');
+	const passengers = placement.map((elem) => {
+		const res = elem.text.replace(CLEANER_REGEX, ' ').trim();
+
+		return res;
+	})
+	const fmtPassengers = passengerFormater(passengers);
 
 	// format date values
 	const travelDate = parsed.querySelectorAll('td.\\\"pnr-summary\\\"');
@@ -98,21 +60,36 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 
 	// parse roundTrips
 	const roundTrips = travelWay.map((elem, i) => {
-		let cleaned = stringClean(elem.text);
-		let split = cleaned.split('$').filter(String);
+		const cleaned = stringClean(elem.text);
+		const split = cleaned.split('$').filter(String);
 
-		return getRoundTrips(split, formatedDates[i]);
+		const finalPassengers = fmtPassengers[i].map((elem, j) => {
+			return {
+				type: isRefundable(passengers[j]),
+				age: elem,
+			};
+		});
+
+		return getRoundTrips(split, formatedDates[i], finalPassengers);
 	})
 
 	// parse product-header
 	const prodHeader1 = parsed.querySelectorAll('tr.\\\"product-header\\\"');
 	const prodHeader2 = parsed.querySelectorAll('table.\\\"product-header\\\"');
-	const amounts1 = prodHeader1.map((val) => {
-		console.log(val.text.replace(/\s*[^\x20-\x7E]*\s*\\r\\n\s*/gm, ' '));
+
+	const amounts1 = prodHeader2.map((val) => {
+		const res = val.text.replace(CLEANER_REGEX, ' ').split(' ');
+		res.pop();
+		res.pop();
+		res.pop();
+
+		return { value: parseFloat(res.pop().replace(',', '.')) };
 	})
 
-	const amounts2 = prodHeader2.map((val) => {
-		console.log(val.text.replace(/\s*[^\x20-\x7E]*\s*\\r\\n\s*/gm, ' '));
+	const amounts2 = prodHeader1.map((val) => {
+		const res = val.text.replace(CLEANER_REGEX, ' ').trim().split(' ').pop();
+
+		return { value: parseFloat(res.replace(',', '.')) };
 	})
 
 	finalRes = {
@@ -127,9 +104,7 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 				}
 			}],
 			custom: {
-				prices: [
-
-				]
+				prices: [...amounts1, ...amounts2]
 			}
 		}
 	};
