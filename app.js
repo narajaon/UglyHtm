@@ -27,13 +27,26 @@ const getRoundTrips = function (details, date, passengers) {
 	};
 }
 
+const readErrorHandler = function (e) {
+	const errorObj = {
+		status: 'ko',
+		result: e
+	}
+
+	return JSON.stringify(errorObj, null, 2);
+}
+
 const isRefundable = function (input) {
 	let res = input.search(/Billet échangeable et remboursable sans frais à l'émission du billet/g);
 	return (res > 0) ? 'échangeable' : 'non échangeable';
 }
 
 fs.readFile('./test.html', 'utf8', function (err, data) {
-	if (err) throw err;
+	if (err) {
+		return fs.writeFile('test2.json', readErrorHandler(err), (err) => {
+			if (err) throw err;
+		});
+	}
 
 	const parsed = parse(data);
 
@@ -109,8 +122,7 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 		}
 	};
 
-	let fileContent = JSON.stringify(finalRes, null, 2);
-	fs.writeFile('test2.json', fileContent, (err) => {
+	fs.writeFile('test2.json', JSON.stringify(finalRes, null, 2), (err) => {
 		if (err) throw err;
 	})
 });
