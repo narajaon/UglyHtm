@@ -9,6 +9,7 @@ const euroToFloat = function (price) {
 }
 
 const stringClean = function (data) {
+
 	return data.replace(CLEANER_REGEX, '$');
 }
 
@@ -22,6 +23,7 @@ const parseDateString = function (date) {
 
 	function pad(number) {
 		if (number < 10) {
+
 			return '0' + number;
 		}
 
@@ -59,12 +61,31 @@ const fmtDate = function (dateArray) {
 const passengerFormater = function (elem) {
 
 	const res = elem.map((pass) => {
+
 		return pass.match(/(\([0-9]?[0-9] à [0-9]?[0-9] ans\))/g);
 	});
 
 	res.pop();
 	res.pop();
+
 	return res;
+}
+
+const getRoundTrips = function (details, date, passengers) {
+
+	return {
+		type: details[0],
+		date: date,
+		trains: [{
+			departureTime: details[1].replace('h', ':'),
+			departureStation: details[2],
+			arrivalTime: details[6].replace('h', ':'),
+			arrivalStation: details[7],
+			type: details[3],
+			number: details[4],
+			passengers,
+		}]
+	};
 }
 
 module.exports = {
@@ -74,5 +95,6 @@ module.exports = {
 	reverseDayMonth,
 	parseDateString,
 	fmtDate,
-	CLEANER_REGEX
+	CLEANER_REGEX,
+	getRoundTrips
 }

@@ -5,27 +5,12 @@ const {
 	stringClean,
 	fmtDate,
 	passengerFormater,
-	CLEANER_REGEX
+	CLEANER_REGEX,
+	getRoundTrips
 } = require('./formaters')
 
-const CL = console.log;
-
-const getRoundTrips = function (details, date, passengers) {
-
-	return {
-		type: details[0],
-		date: date,
-		trains: [{
-			departureTime: details[1].replace('h', ':'),
-			departureStation: details[2],
-			arrivalTime: details[6].replace('h', ':'),
-			arrivalStation: details[7],
-			type: details[3],
-			number: details[4],
-			passengers,
-		}]
-	};
-}
+const src = process.argv[2] || 'test.html';
+const dest = process.argv[3] || 'test.json';
 
 const readErrorHandler = function (e) {
 	const errorObj = {
@@ -38,11 +23,13 @@ const readErrorHandler = function (e) {
 
 const isRefundable = function (input) {
 	let res = input.search(/Billet échangeable et remboursable sans frais à l'émission du billet/g);
+
 	return (res > 0) ? 'échangeable' : 'non échangeable';
 }
 
-fs.readFile('./test.html', 'utf8', function (err, data) {
+fs.readFile(src, 'utf8', function (err, data) {
 	if (err) {
+
 		return fs.writeFile('test2.json', readErrorHandler(err), (err) => {
 			if (err) throw err;
 		});
@@ -75,8 +62,8 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 	const roundTrips = travelWay.map((elem, i) => {
 		const cleaned = stringClean(elem.text);
 		const split = cleaned.split('$').filter(String);
-
 		const finalPassengers = fmtPassengers[i].map((elem, j) => {
+
 			return {
 				type: isRefundable(passengers[j]),
 				age: elem,
@@ -89,7 +76,6 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 	// parse product-header
 	const prodHeader1 = parsed.querySelectorAll('tr.\\\"product-header\\\"');
 	const prodHeader2 = parsed.querySelectorAll('table.\\\"product-header\\\"');
-
 	const amounts1 = prodHeader2.map((val) => {
 		const res = val.text.replace(CLEANER_REGEX, ' ').split(' ');
 		res.pop();
@@ -105,6 +91,7 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 		return { value: parseFloat(res.replace(',', '.')) };
 	})
 
+	// getting everything together nicely
 	finalRes = {
 		status: 'ok',
 		result: {
@@ -122,7 +109,8 @@ fs.readFile('./test.html', 'utf8', function (err, data) {
 		}
 	};
 
-	fs.writeFile('test2.json', JSON.stringify(finalRes, null, 2), (err) => {
+	// write everything to a file
+	fs.writeFile(dest, JSON.stringify(finalRes, null, 2), (err) => {
 		if (err) throw err;
 	})
 });
